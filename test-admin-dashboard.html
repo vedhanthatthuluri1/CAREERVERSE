@@ -1,0 +1,267 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAREERVERSE - Dashboard API Test</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 30px 16px;
+      min-height: 100vh;
+      background: #0b1020;
+      color: #f8fafc;
+      font-family: Arial, sans-serif;
+    }
+
+    main {
+      max-width: 850px;
+      margin: 30px auto;
+    }
+
+    .panel {
+      padding: 25px;
+      margin-bottom: 20px;
+      border: 1px solid #29364b;
+      border-radius: 14px;
+      background: #151e30;
+    }
+
+    h1 { margin-top: 0; }
+    .muted { color: #9caec5; }
+
+    label {
+      display: block;
+      margin: 16px 0 7px;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #34445e;
+      border-radius: 8px;
+      background: #0b1424;
+      color: white;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 20px;
+      border: 0;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: .6; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 15px;
+    }
+
+    .stat {
+      padding: 20px;
+      border: 1px solid #34445e;
+      border-radius: 10px;
+      background: #0d1729;
+    }
+
+    .stat span {
+      display: block;
+      margin-bottom: 10px;
+      color: #9caec5;
+      font-size: 13px;
+    }
+
+    .stat strong {
+      font-size: 27px;
+    }
+
+    pre {
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      color: #bfdbfe;
+      line-height: 1.5;
+    }
+
+    #dashboard { display: none; }
+    #status { margin-top: 18px; }
+  </style>
+</head>
+
+<body>
+<main>
+  <section class="panel">
+    <h1>CAREERVERSE</h1>
+    <p class="muted">Administrator Dashboard API Test · v3.3.2</p>
+
+    <form id="loginForm">
+      <label for="username">Admin Username</label>
+      <input id="username" autocomplete="username" required>
+
+      <label for="password">Admin Password</label>
+      <input id="password" type="password"
+             autocomplete="current-password" required>
+
+      <button id="submitButton" type="submit">
+        Login & Test Dashboard
+      </button>
+    </form>
+
+    <p id="status" class="muted" aria-live="polite">
+      Waiting for administrator login.
+    </p>
+  </section>
+
+  <section class="panel" id="dashboard">
+    <h2>Dashboard Statistics</h2>
+
+    <div class="grid">
+      <div class="stat">
+        <span>Total Students</span>
+        <strong id="students">—</strong>
+      </div>
+
+      <div class="stat">
+        <span>Total Assessments</span>
+        <strong id="assessments">—</strong>
+      </div>
+
+      <div class="stat">
+        <span>Completed Chapters</span>
+        <strong id="chapters">—</strong>
+      </div>
+
+      <div class="stat">
+        <span>Live Registrations</span>
+        <strong id="registrations">—</strong>
+      </div>
+
+      <div class="stat">
+        <span>Average Score</span>
+        <strong id="average">—</strong>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>API Response</h3>
+    <pre id="output">No request made yet.</pre>
+  </section>
+</main>
+
+<script>
+  const API_URL =
+    "https://script.google.com/macros/s/AKfycbz9csVIVkkhBAvhQhjToYzMgi6Q2uPYTQ8KkKseC3NCPCGDPikfjq8Gn9kB8v2VAp_a6Q/exec";
+
+  const form = document.getElementById("loginForm");
+  const button = document.getElementById("submitButton");
+  const status = document.getElementById("status");
+  const output = document.getElementById("output");
+
+  async function apiRequest(payload) {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error("HTTP error: " + response.status);
+    }
+
+    return await response.json();
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    button.disabled = true;
+    button.textContent = "Testing...";
+    document.getElementById("dashboard").style.display = "none";
+
+    try {
+      status.textContent = "Step 1: Authenticating administrator...";
+
+      const loginResult = await apiRequest({
+        action: "admin.login",
+        username: document.getElementById("username").value.trim(),
+        password: document.getElementById("password").value
+      });
+
+      if (!loginResult.success) {
+        throw new Error(
+          loginResult.message || "Administrator login failed."
+        );
+      }
+
+      const loginData = loginResult.data || loginResult;
+      const token = loginData.token;
+
+      if (!token) {
+        throw new Error("Login succeeded, but no session token was returned.");
+      }
+
+      status.textContent = "Step 2: Loading dashboard statistics...";
+
+      const dashboardResult = await apiRequest({
+        action: "admin.dashboard",
+        token: token
+      });
+
+      if (!dashboardResult.success) {
+        throw new Error(
+          dashboardResult.message || "Dashboard request failed."
+        );
+      }
+
+      const dashboardData =
+        dashboardResult.data || dashboardResult;
+
+      document.getElementById("students").textContent =
+        dashboardData.totalStudents ?? 0;
+
+      document.getElementById("assessments").textContent =
+        dashboardData.totalAssessments ?? 0;
+
+      document.getElementById("chapters").textContent =
+        dashboardData.completedChapters ?? 0;
+
+      document.getElementById("registrations").textContent =
+        dashboardData.liveRegistrations ?? 0;
+
+      document.getElementById("average").textContent =
+        (dashboardData.averageScore ?? 0) + "%";
+
+      document.getElementById("dashboard").style.display = "block";
+
+      status.textContent =
+        "SUCCESS: Administrator authenticated and dashboard loaded.";
+
+      output.textContent = JSON.stringify({
+        login: "Successful",
+        dashboard: "Successful",
+        statistics: dashboardData
+      }, null, 2);
+
+    } catch (error) {
+      status.textContent = "TEST FAILED: " + error.message;
+      output.textContent = error.message;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Login & Test Dashboard";
+    }
+  });
+</script>
+</body>
+</html>
